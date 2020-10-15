@@ -1,0 +1,117 @@
+---
+title: "Tidyverse Exam McEwen"
+author: "McEwen Khundi"
+date: "10/14/2020"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readr)
+library(here)
+```
+
+## Import the data
+
+```{r importdata}
+at_health_facilities <- read_csv("https://education.rstudio.com/blog/2020/02/instructor-certification-exams/at_health_facilities.csv")
+```
+
+## Tidy the data
+
+```{r tidydata, echo=FALSE}
+View(at_health_facilities)
+
+nrow(at_health_facilities)
+
+# countries that contributed data
+length(unique(at_health_facilities$iso3))
+
+
+maxmin_yeardiff <- at_health_facilities %>%
+                        group_by(iso3) %>%
+                        summarise(min_year = min(year, na.rm = TRUE), 
+                                  max_year = max(year, na.rm = TRUE), 
+                                  maxmin_yeardiff = max_year - min_year)
+
+threeyr_country <- at_health_facilities %>%
+                        group_by(iso3) %>%
+                        count() %>%
+                        filter(n >= 3)
+
+at_health_facilities_100 <- at_health_facilities %>%
+                        filter(age_15_17 == 100 | age_20_34 == 100)
+
+length(unique(at_health_facilities_100$iso3))
+```
+
+```{r reshape}
+infant_hiv <-  read_csv("https://education.rstudio.com/blog/2020/02/instructor-certification-exams/infant_hiv.csv")
+
+View(infant_hiv)
+
+infant_hiv_long <- pivot_longer(infant_hiv,
+                                -ISO3,
+                                names_to = c("year","level"), 
+                                names_sep = " ",   
+                                values_to = "value") %>%
+                   mutate(value = if_else(value %in% c("-", ">95%"), NA_character_, value))
+
+infant_hiv_pivot_longer <- function(data = data ) {
+                             pivot_longer(data,
+                                -ISO3,
+                                names_to = c("year","level"), 
+                                names_sep = " ",   
+                                values_to = "value") %>%
+                   mutate(value = if_else(value %in% c("-", ">95%"), NA_character_, value))
+
+}
+
+infant_hiv_pivot_longer(infant_hiv)
+
+```
+```{r ggplot2graphs}
+
+ranking <- read_csv("https://education.rstudio.com/blog/2020/02/instructor-certification-exams/ranking.csv")
+
+View(ranking)
+
+ranking_item_total <- ranking %>%
+                      group_by(item) %>%
+                      count(name = "total")
+
+ranking_item_pos <- ranking %>%
+                  group_by(item) %>%
+                  filter(rank == "positive") %>%
+                  count(name = "positive_n")
+
+ranking_item_neg <- ranking %>%
+                  group_by(item) %>%
+                  filter(rank == "negative") %>%
+                  count(name = "negative_n")
+
+ranking_item_all <- left_join(ranking_item_total, ranking_item_pos) %>%
+  left_join(ranking_item_neg)
+
+ranking_item_all_perc <- ranking_item_all %>%
+                          ungroup() %>%
+                          mutate(pos_perc = positive_n/total, neg_perc = negative_n/total)
+
+ranking_item_all_perc %>%
+  ggplot(aes(y = pos_perc , x = neg_perc, size = total)) +
+  geom_point(alpha = 0.25) + 
+  geom_smooth(method = "lm", group = 1,show.legend = FALSE) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::percent) + labs(
+    x = "Negative", y = "Positive"
+  ) +
+  scale_size(name = "Total ratings")
+
+```
+
+
+
+
